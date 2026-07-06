@@ -67,8 +67,12 @@ async def run_async_migrations() -> None:
 
     """
 
+    url = config.get_main_option("sqlalchemy.url")
+    if url is None or url == "driver://user:pass@localhost/dbname":
+        url = settings.database_url
+
     connectable = async_engine_from_config(
-        {"sqlalchemy.url": settings.database_url},
+        {"sqlalchemy.url": url},
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
