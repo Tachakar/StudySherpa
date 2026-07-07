@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     postgres_user: str
     postgres_password: str
@@ -8,7 +9,11 @@ class Settings(BaseSettings):
     postgres_test_port: int
     qdrant_port: int
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    jwt_secret_key: str
+    jwt_expire_minutes: int
+    jwt_algorithm: str
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", frozen=True)
 
     @property
     def database_url(self):
@@ -17,5 +22,6 @@ class Settings(BaseSettings):
     @property
     def test_database_url(self):
         return f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@localhost:{self.postgres_test_port}/test_db"
+
 
 settings = Settings()
