@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int
     jwt_algorithm: str
 
+    login_rate_limit: str
+    register_rate_limit: str
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", frozen=True)
 
     @property

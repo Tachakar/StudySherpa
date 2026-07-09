@@ -12,6 +12,7 @@ dependencies = [
     "pydantic-settings>=2.14.2",
     "pydantic[email]>=2.13.4",
     "pyjwt>=2.13.0",
+    "slowapi>=0.1.10",
     "sqlalchemy>=2.0.51",
     "uvicorn[standard]>=0.50.0",
 ]

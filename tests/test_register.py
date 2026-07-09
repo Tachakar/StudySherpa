@@ -26,3 +26,18 @@ async def test_register_duplicate_email_fails(client: AsyncClient):
 
     second = await client.post("/register", json=payload)
     assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_register_rate_limiter(client: AsyncClient):
+    for i in range(3):
+        register = await client.post(
+            "/register",
+            json={"email": f"test{i}@example.com", "password": "strongpassword"},
+        )
+        assert register.status_code == 201
+
+    register_limit = await client.post(
+        "/register", json={"email": "test@example.com", "password": "strongpassword"}
+    )
+    assert register_limit.status_code == 429

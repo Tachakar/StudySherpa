@@ -54,3 +54,22 @@ async def test_login_wrong_email_and_password_same_msg(client: AsyncClient):
         "/login", json={"email": "nobody@example.com", "password": "wrongpassword"}
     )
     assert wrong_password.json()["detail"] == nonexistent_user.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_login_rate_limiter(client: AsyncClient):
+    register = await client.post(
+        "/register", json={"email": "test@example.com", "password": "strongpassword"}
+    )
+    assert register.status_code == 201
+    for _ in range(5):
+        login = await client.post(
+            "/login",
+            json={"email": "test@example.com", "password": "strongpassword"},
+        )
+        assert login.status_code == 200
+    login_limit_reached = await client.post(
+        "/login",
+        json={"email": "test@example.com", "password": "strongpassword"},
+    )
+    assert login_limit_reached.status_code == 429

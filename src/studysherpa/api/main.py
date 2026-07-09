@@ -1,14 +1,21 @@
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from studysherpa.api.schemas import Token, UserCreate, UserLogin, UserPublic
+from studysherpa.core.config import settings
 from studysherpa.core.database import get_db
 from studysherpa.core.security import create_jwt_token, hash_password, verify_password
 from studysherpa.db import User
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="StudySherpa")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.get("/health")
@@ -17,7 +24,10 @@ def health_check() -> dict[str, str]:
 
 
 @app.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
-async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)) -> User:
+@limiter.limit(limit_value=settings.register_rate_limit)
+async def register(
+    request: Request, user_data: UserCreate, db: AsyncSession = Depends(get_db)
+) -> User:
     existing = await db.scalar(select(User).where(User.email == user_data.email))
     if existing is not None:
         raise HTTPException(
@@ -41,7 +51,10 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)) ->
 
 
 @app.post("/login", response_model=Token)
-async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)) -> Token:
+@limiter.limit(limit_value=settings.login_rate_limit)
+async def login(
+    request: Request, credentials: UserLogin, db: AsyncSession = Depends(get_db)
+) -> Token:
     user = await db.scalar(select(User).where(User.email == credentials.email))
     if user is None or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(

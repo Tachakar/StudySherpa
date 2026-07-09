@@ -49,3 +49,11 @@ def apply_migrations():
     command.upgrade(alembic_config, "head")
     yield
     command.downgrade(alembic_config, "base")
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    from studysherpa.api.main import limiter
+
+    limiter.reset()
+    yield
