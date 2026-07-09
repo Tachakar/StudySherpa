@@ -13,3 +13,17 @@ class UserPublic(BaseModel):
     email: EmailStr
 
     model_config = {"from_attributes": True, "frozen": True}
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+    model_config = {"frozen": True}
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+    model_config = {"frozen": True}

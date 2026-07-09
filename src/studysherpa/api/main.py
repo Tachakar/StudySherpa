@@ -3,9 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from studysherpa.api.schemas import UserCreate, UserPublic
+from studysherpa.api.schemas import Token, UserCreate, UserLogin, UserPublic
 from studysherpa.core.database import get_db
-from studysherpa.core.security import hash_password
+from studysherpa.core.security import create_jwt_token, hash_password, verify_password
 from studysherpa.db import User
 
 app = FastAPI(title="StudySherpa")
@@ -38,3 +38,16 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)) ->
     await db.refresh(user)
 
     return user
+
+
+@app.post("/login", response_model=Token)
+async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)) -> Token:
+    user = await db.scalar(select(User).where(User.email == credentials.email))
+    if user is None or not verify_password(credentials.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+        )
+    jwt_token = create_jwt_token(user.id)
+    token = Token(access_token=jwt_token, token_type="bearer")
+    return token

@@ -6,7 +6,7 @@ from httpx import AsyncClient
 async def test_register_creates_user(client: AsyncClient):
     response = await client.post(
         "/register",
-        json={"email": "test@example.com", "password": "haslo123"},
+        json={"email": "test@example.com", "password": "strongpassword"},
     )
 
     assert response.status_code == 201
@@ -19,7 +19,7 @@ async def test_register_creates_user(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_register_duplicate_email_fails(client: AsyncClient):
-    payload = {"email": "duplicate@example.com", "password": "haslo123"}
+    payload = {"email": "duplicate@example.com", "password": "strongpassword"}
 
     first = await client.post("/register", json=payload)
     assert first.status_code == 201
