@@ -92,6 +92,7 @@ async def login(
 
 
 @app.post("/refresh", response_model=Token)
+@limiter.limit(limit_value=settings.refresh_rate_limit)
 async def refresh(
     request: Request, body: RefreshRequest, db: AsyncSession = Depends(get_db)
 ) -> Token:

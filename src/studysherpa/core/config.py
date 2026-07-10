@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     login_rate_limit: str
     register_rate_limit: str
+    refresh_rate_limit: str
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", frozen=True)
 
