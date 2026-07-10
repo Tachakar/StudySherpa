@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from studysherpa.api.schemas import (
+    LogoutRequest,
     RefreshRequest,
     Token,
     UserCreate,
@@ -124,3 +125,18 @@ async def refresh(
         token_type="bearer",
         refresh_token=new_raw_refresh_token,
     )
+
+
+@app.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(body: LogoutRequest, db: AsyncSession = Depends(get_db)) -> None:
+    token_hash = hash_refresh_token(body.refresh_token)
+    stored_token = await db.scalar(
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    )
+    if stored_token is None or stored_token.revoked_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        )
+
+    stored_token.revoked_at = datetime.now(tz=timezone.utc)
+    await db.commit()

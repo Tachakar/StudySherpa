@@ -33,3 +33,9 @@ class UserLogin(BaseModel):
     password: str
 
     model_config = {"frozen": True}
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str
+
+    model_config = {"frozen": True}
