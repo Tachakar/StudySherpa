@@ -10,8 +10,9 @@ class Settings(BaseSettings):
     qdrant_port: int
 
     jwt_secret_key: str
-    jwt_expire_minutes: int
+    jwt_expires_minutes: int
     jwt_algorithm: str
+    refresh_token_expires_days: int
 
     login_rate_limit: str
     register_rate_limit: str
