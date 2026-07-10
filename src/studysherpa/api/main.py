@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -6,11 +8,23 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from studysherpa.api.schemas import Token, UserCreate, UserLogin, UserPublic
+from studysherpa.api.schemas import (
+    RefreshRequest,
+    Token,
+    UserCreate,
+    UserLogin,
+    UserPublic,
+)
 from studysherpa.core.config import settings
 from studysherpa.core.database import get_db
-from studysherpa.core.security import create_jwt_token, hash_password, verify_password
-from studysherpa.db import User
+from studysherpa.core.security import (
+    create_jwt_token,
+    create_refresh_token,
+    hash_password,
+    hash_refresh_token,
+    verify_password,
+)
+from studysherpa.db import RefreshToken, User
 
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="StudySherpa")
@@ -62,5 +76,50 @@ async def login(
             detail="Incorrect email or password",
         )
     jwt_token = create_jwt_token(user.id)
-    token = Token(access_token=jwt_token, token_type="bearer")
+    raw_refresh_token = create_refresh_token()
+    refresh_token_db = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_refresh_token(raw_refresh_token),
+        expires_at=datetime.now(tz=timezone.utc)
+        + timedelta(days=settings.refresh_token_expires_days),
+    )
+    db.add(refresh_token_db)
+    await db.commit()
+    token = Token(
+        access_token=jwt_token, token_type="bearer", refresh_token=raw_refresh_token
+    )
     return token
+
+
+@app.post("/refresh", response_model=Token)
+async def refresh(
+    request: Request, body: RefreshRequest, db: AsyncSession = Depends(get_db)
+) -> Token:
+    token_hash = hash_refresh_token(body.refresh_token)
+    stored_token = await db.scalar(
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    )
+    if (
+        stored_token is None
+        or stored_token.revoked_at is not None
+        or stored_token.expires_at < datetime.now(tz=timezone.utc)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        )
+    stored_token.revoked_at = datetime.now(tz=timezone.utc)
+    new_raw_refresh_token = create_refresh_token()
+    hashed_refreshed_token = RefreshToken(
+        user_id=stored_token.user_id,
+        token_hash=hash_refresh_token(new_raw_refresh_token),
+        expires_at=datetime.now(tz=timezone.utc)
+        + timedelta(days=settings.refresh_token_expires_days),
+    )
+    db.add(hashed_refreshed_token)
+    new_access_token = create_jwt_token(stored_token.user_id)
+    await db.commit()
+    return Token(
+        access_token=new_access_token,
+        token_type="bearer",
+        refresh_token=new_raw_refresh_token,
+    )
