@@ -1,11 +1,21 @@
 import hashlib
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from studysherpa.core.config import settings
+from studysherpa.core.database import get_db
+from studysherpa.db import User
+
+http_bearer = HTTPBearer()
+logger = logging.getLogger(__name__)
 
 
 def hash_password(plain_password: str) -> str:
@@ -43,3 +53,29 @@ def create_refresh_token() -> str:
 
 def hash_refresh_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _unauthorized(logging_msg: str) -> HTTPException:
+    logger.warning(logging_msg)
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    try:
+        user_id = verify_jwt_token(credentials.credentials)
+    except jwt.ExpiredSignatureError:
+        raise _unauthorized("Expired JWT")
+    except jwt.InvalidTokenError:
+        raise _unauthorized("Invalid JWT")
+    stored_user = await db.scalar(select(User).where(User.id == user_id))
+    if stored_user is None:
+        raise _unauthorized("User not found")
+
+    return stored_user

@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     register_rate_limit: str
     refresh_rate_limit: str
 
+    cors_allowed_origins: list[str]
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", frozen=True)
 
     @property
