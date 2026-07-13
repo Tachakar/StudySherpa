@@ -22,6 +22,7 @@ from studysherpa.core.database import get_db
 from studysherpa.core.security import (
     create_jwt_token,
     create_refresh_token,
+    get_current_user,
     hash_password,
     hash_refresh_token,
     verify_password,
@@ -150,3 +151,10 @@ async def logout(body: LogoutRequest, db: AsyncSession = Depends(get_db)) -> Non
 
     stored_token.revoked_at = datetime.now(tz=timezone.utc)
     await db.commit()
+
+
+@app.get("/user", response_model=UserPublic)
+async def read_current_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    return current_user
