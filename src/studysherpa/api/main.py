@@ -53,7 +53,7 @@ def health_check() -> dict[str, str]:
 @limiter.limit(limit_value=settings.register_rate_limit)
 async def register(
     request: Request, user_data: UserCreate, db: AsyncSession = Depends(get_db)
-) -> User:
+):
     existing = await db.scalar(select(User).where(User.email == user_data.email))
     if existing is not None:
         raise HTTPException(
@@ -156,5 +156,5 @@ async def logout(body: LogoutRequest, db: AsyncSession = Depends(get_db)) -> Non
 @app.get("/user", response_model=UserPublic)
 async def read_current_user(
     current_user: User = Depends(get_current_user),
-) -> User:
+):
     return current_user
