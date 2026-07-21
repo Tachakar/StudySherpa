@@ -8,6 +8,15 @@ from PIL.Image import Image
 
 @dataclass(frozen=True)
 class ExtractedImage:
+    """
+    Class representing extracted image.
+
+    Params:
+        page_number: int
+        data: bytes
+        width: int
+        height: int
+    """
     page_number: int
     data: bytes
     width: int
@@ -16,6 +25,14 @@ class ExtractedImage:
 
 @dataclass(frozen=True)
 class ExtractedPage:
+    """
+    Class representing extracted page.
+
+    Params:
+        page_number: int
+        text: int
+        images: list[ExtractedImage] | None
+    """
     page_number: int
     text: str
     images: list[ExtractedImage] | None
@@ -23,6 +40,12 @@ class ExtractedPage:
 
 @dataclass(frozen=True)
 class ExtractedDocument:
+    """
+    Class representing extracted document.
+
+    Params:
+        pages: list[ExtractedPage]
+    """
     pages: list[ExtractedPage]
 
 
@@ -61,4 +84,5 @@ def extract_pdf_from_bytes(pdf_bytes: bytes) -> ExtractedDocument:
     return ExtractedDocument(pages)
 
 
-def filter_decorative_images(images: list[ExtractedImage]) -> list[ExtractedImage]: ...
+def filter_decorative_images(images: list[ExtractedImage]) -> list[ExtractedImage]:
+
