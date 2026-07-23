@@ -2,87 +2,117 @@ import logging
 from dataclasses import dataclass
 from io import BytesIO
 
-import pypdf
+from pymupdf import Document, Page
 from PIL.Image import Image
 
 
 @dataclass(frozen=True)
 class ExtractedImage:
     """
-    Class representing extracted image.
-
     Params:
-        page_number: int
-        data: bytes
-        width: int
-        height: int
+        page_number: `int`
+        data: `bytes`
+        width: `float`
+        height: `float`
     """
+
     page_number: int
     data: bytes
-    width: int
-    height: int
+    width: float
+    height: float
 
 
 @dataclass(frozen=True)
 class ExtractedPage:
     """
-    Class representing extracted page.
-
     Params:
-        page_number: int
-        text: int
-        images: list[ExtractedImage] | None
+        page_number: `int`
+        text: `int`
+        images: `list[ExtractedImage]` | `None`
+        page_width: float
+        page_height: float
     """
+
     page_number: int
     text: str
     images: list[ExtractedImage] | None
+    width: float
+    height: float
 
 
 @dataclass(frozen=True)
 class ExtractedDocument:
     """
-    Class representing extracted document.
-
     Params:
-        pages: list[ExtractedPage]
+        pages: `list[ExtractedPage]`
     """
+
     pages: list[ExtractedPage]
 
 
 def _extract_images_from_page(
-    page: pypdf.PageObject, page_num: int
+    page: Page, page_num: int, doc: Document
 ) -> list[ExtractedImage] | None:
-    image_list = list(page.images)
-    if len(image_list) == 0:
+    image_list = page.get_images(full=True)
+    if not image_list:
         return None
-    extracted_images: list[ExtractedImage] = []
-    for image in image_list:
-        try:
-            decoded_image: Image = image.image
-            extracted_images.append(
-                ExtractedImage(
-                    page_number=page_num,
-                    data=image.data,
-                    width=decoded_image.size[0],
-                    height=decoded_image.size[1],
-                )
+    res: list[ExtractedImage] = []
+    for img in image_list:
+        xref = img[0]
+        extracted = doc.extract_image(xref)
+        data = extracted["image"]
+        bbox = page.get_image_bbox(img)
+        if isinstance(bbox, tuple):
+            bbox = bbox[0]
+        res.append(
+            ExtractedImage(
+                page_number=page_num,
+                data=data,
+                width=bbox.width,
+                height=bbox.height,
             )
-        except AttributeError:
-            logging.warning(f"Couldn't decode image on page_num = {page_num}.")
-    return extracted_images
+        )
+    return res
 
 
 def extract_pdf_from_bytes(pdf_bytes: bytes) -> ExtractedDocument:
     stream = BytesIO(pdf_bytes)
-    reader = pypdf.PdfReader(stream)
+    doc = Document(stream=stream, filetype="pdf")
     pages: list[ExtractedPage] = []
-    for page_num, page in enumerate(reader.pages, start=1):
-        images = _extract_images_from_page(page, page_num)
+    for page_index in range(len(doc)):
+        page = doc[page_index]
+        page_num = page_index + 1
+        images: list[ExtractedImage] | None = _extract_images_from_page(
+            page, page_num, doc
+        )
+        text = page.get_text("text")
+        width, height = page.mediabox_size.x, page.mediabox_size.y
         pages.append(
-            ExtractedPage(page_number=page_num, text=page.extract_text(), images=images)
+            ExtractedPage(
+                page_number=page_num,
+                text=text,
+                width=width,
+                height=height,
+                images=images,
+            )
         )
     return ExtractedDocument(pages)
 
 
-def filter_decorative_images(images: list[ExtractedImage]) -> list[ExtractedImage]:
+def filter_images_on_page(page: ExtractedPage) -> list[ExtractedImage] | None:
+    """
+    Filters images based on aspect ratio and relativeness to page size.
 
+    Args:
+        images: `list[ExtractedImage]`
+
+    Returns:
+        `list[ExtractedImage]`
+    """
+    result = []
+    images = page.images
+    if images is None:
+        logging.info(f"No images to filter on page {page.page_number}")
+        return None
+    for image in images:
+        ...
