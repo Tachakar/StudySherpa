@@ -19,31 +19,25 @@ async def test_logout_success(client: AsyncClient, db_session: AsyncSession):
         "/login", json={"email": "test@exmaple.com", "password": "strongpassword"}
     )
     assert login.status_code == 200
-
-    refresh_token = login.json()["refresh_token"]
-
-    logout = await client.post("/logout", json={"refresh_token": refresh_token})
+    raw = client.cookies.get("refresh_token")
+    assert raw is not None
+    logout = await client.post("/logout")
     assert logout.status_code == 204
-
     stored_token = await db_session.scalar(
-        select(RefreshToken).where(
-            RefreshToken.token_hash == hash_refresh_token(refresh_token)
-        )
+        select(RefreshToken).where(RefreshToken.token_hash == hash_refresh_token(raw))
     )
 
     assert stored_token is not None
     assert stored_token.revoked_at is not None
 
-    refresh_attempt = await client.post(
-        "/refresh", json={"refresh_token": refresh_token}
-    )
+    refresh_attempt = await client.post("/refresh")
 
     assert refresh_attempt.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_logout_noneexistant_token(client: AsyncClient):
-    response = await client.post("/logout", json={"refresh_token": "noneexistant"})
+    response = await client.post("/logout")
     assert response.status_code == 401
 
 
@@ -59,9 +53,10 @@ async def test_logout_already_revoked_token(client: AsyncClient):
     )
     assert login.status_code == 200
 
-    refresh_token = login.json()["refresh_token"]
+    raw = client.cookies.get("refresh_token")
+    assert raw is not None
 
-    first_logout = await client.post("/logout", json={"refresh_token": refresh_token})
+    first_logout = await client.post("/logout")
     assert first_logout.status_code == 204
-    second_logout = await client.post("/logout", json={"refresh_token": refresh_token})
+    second_logout = await client.post("/logout")
     assert second_logout.status_code == 401

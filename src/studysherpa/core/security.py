@@ -25,7 +25,9 @@ def hash_password(plain_password: str) -> str:
     return hashed.decode("utf-8")
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
+def verify_password(
+    plain_password: str, hashed_password: str = hash_password(settings.dummy_password)
+) -> bool:
     hash_bytes = hashed_password.encode("utf-8")
     plain_bytes = plain_password.encode("utf-8")
     return bcrypt.checkpw(plain_bytes, hash_bytes)

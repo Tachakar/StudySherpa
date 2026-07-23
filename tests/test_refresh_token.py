@@ -21,16 +21,17 @@ async def test_refresh_success(client: AsyncClient):
     )
 
     assert login.status_code == 200
-    login_data = login.json()
-    response = await client.post(
-        "/refresh", json={"refresh_token": login_data["refresh_token"]}
-    )
+    token_before_refresh = client.cookies.get("refresh_token")
+    assert token_before_refresh is not None
+    response = await client.post("/refresh")
     assert response.status_code == 200
     data = response.json()
+    token_after_refresh = client.cookies.get("refresh_token")
+    assert token_after_refresh is not None
 
     assert verify_jwt_token(data["access_token"]) == register.json()["id"]
     assert data["token_type"] == "bearer"
-    assert data["refresh_token"] != login_data["refresh_token"]
+    assert token_after_refresh != token_before_refresh
 
 
 @pytest.mark.asyncio
@@ -45,16 +46,17 @@ async def test_refresh_expired_token(client: AsyncClient, db_session: AsyncSessi
     )
 
     assert login.status_code == 200
-    raw_refresh_token = login.json()["refresh_token"]
+    raw_token = client.cookies.get("refresh_token")
+    assert raw_token is not None
     stored_token = await db_session.scalar(
         select(RefreshToken).where(
-            RefreshToken.token_hash == hash_refresh_token(raw_refresh_token)
+            RefreshToken.token_hash == hash_refresh_token(raw_token)
         )
     )
     assert stored_token is not None
     stored_token.expires_at = datetime.now(tz=timezone.utc) - timedelta(days=1)
     await db_session.commit()
-    response = await client.post("/refresh", json={"refresh_token": raw_refresh_token})
+    response = await client.post("/refresh")
     assert response.status_code == 401
 
 
@@ -69,24 +71,18 @@ async def test_refresh_revoked_token(client: AsyncClient):
         "/login", json={"email": "test@example.com", "password": "strongpassword"}
     )
     assert login.status_code == 200
-    old_refresh_token = login.json()["refresh_token"]
-
-    first_refresh = await client.post(
-        "/refresh", json={"refresh_token": old_refresh_token}
-    )
+    old_refresh_token = client.cookies.get("refresh_token")
+    assert old_refresh_token is not None
+    first_refresh = await client.post("/refresh")
     assert first_refresh.status_code == 200
-
-    reused_refresh = await client.post(
-        "/refresh", json={"refresh_token": old_refresh_token}
-    )
+    client.cookies.set("refresh_token", old_refresh_token)
+    reused_refresh = await client.post("/refresh")
     assert reused_refresh.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_refresh_nonexistent_token(client: AsyncClient):
-    response = await client.post(
-        "/refresh", json={"refresh_token": "totally-made-up-token-value"}
-    )
+    response = await client.post("/refresh")
     assert response.status_code == 401
 
 
@@ -100,16 +96,16 @@ async def test_refresh_rate_limiter(client: AsyncClient):
         "/login", json={"email": "test@example.com", "password": "strongpassword"}
     )
     assert login.status_code == 200
-    refresh_token = login.json()["refresh_token"]
+    refresh_token = client.cookies.get("refresh_token")
+    assert refresh_token is not None
     for _ in range(20):
         response = await client.post(
             "/refresh",
-            json={"refresh_token": refresh_token},
         )
         assert response.status_code == 200
-        refresh_token = response.json()["refresh_token"]
+        refresh_token = client.cookies.get("refresh_token")
+        assert refresh_token is not None
     refresh_limit_reached = await client.post(
         "/refresh",
-        json={"refresh_token": refresh_token},
     )
     assert refresh_limit_reached.status_code == 429

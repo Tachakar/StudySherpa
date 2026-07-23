@@ -18,24 +18,12 @@ class UserPublic(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
-    refresh_token: str
 
-    model_config = {"frozen": True}
-
-
-class RefreshRequest(BaseModel):
-    refresh_token: str
     model_config = {"frozen": True}
 
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
-
-    model_config = {"frozen": True}
-
-
-class LogoutRequest(BaseModel):
-    refresh_token: str
 
     model_config = {"frozen": True}
