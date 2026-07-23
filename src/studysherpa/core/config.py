@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,4 +33,11 @@ class Settings(BaseSettings):
         return f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@localhost:{self.postgres_test_port}/test_db"
 
 
+@dataclass(frozen=True)
+class ImageFilteringConfig:
+    min_percentage_coverage: float = 1.5
+    max_aspect_ratio: float = 8.0
+
+
 settings = Settings()
+filter_config = ImageFilteringConfig()

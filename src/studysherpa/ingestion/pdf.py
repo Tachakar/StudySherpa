@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from io import BytesIO
 
 from pymupdf import Document, Page
-from PIL.Image import Image
+
+from studysherpa.core.config import filter_config
 
 
 @dataclass(frozen=True)
@@ -28,14 +29,14 @@ class ExtractedPage:
     Params:
         page_number: `int`
         text: `int`
-        images: `list[ExtractedImage]` | `None`
+        images: `list[ExtractedImage]`
         page_width: float
         page_height: float
     """
 
     page_number: int
     text: str
-    images: list[ExtractedImage] | None
+    images: list[ExtractedImage]
     width: float
     height: float
 
@@ -52,10 +53,10 @@ class ExtractedDocument:
 
 def _extract_images_from_page(
     page: Page, page_num: int, doc: Document
-) -> list[ExtractedImage] | None:
+) -> list[ExtractedImage]:
     image_list = page.get_images(full=True)
     if not image_list:
-        return None
+        return []
     res: list[ExtractedImage] = []
     for img in image_list:
         xref = img[0]
@@ -82,9 +83,7 @@ def extract_pdf_from_bytes(pdf_bytes: bytes) -> ExtractedDocument:
     for page_index in range(len(doc)):
         page = doc[page_index]
         page_num = page_index + 1
-        images: list[ExtractedImage] | None = _extract_images_from_page(
-            page, page_num, doc
-        )
+        images: list[ExtractedImage] = _extract_images_from_page(page, page_num, doc)
         text = page.get_text("text")
         width, height = page.mediabox_size.x, page.mediabox_size.y
         pages.append(
@@ -99,9 +98,13 @@ def extract_pdf_from_bytes(pdf_bytes: bytes) -> ExtractedDocument:
     return ExtractedDocument(pages)
 
 
-def filter_images_on_page(page: ExtractedPage) -> list[ExtractedImage] | None:
+def filter_images_on_page(
+    page: ExtractedPage,
+    min_percentage_coverage: float = filter_config.min_percentage_coverage,
+    max_aspect_ratio: float = filter_config.max_aspect_ratio,
+) -> list[ExtractedImage]:
     """
-    Filters images based on aspect ratio and relativeness to page size.
+    Filters images based on aspect ratio and percentage coverage.
 
     Args:
         images: `list[ExtractedImage]`
@@ -109,10 +112,18 @@ def filter_images_on_page(page: ExtractedPage) -> list[ExtractedImage] | None:
     Returns:
         `list[ExtractedImage]`
     """
-    result = []
     images = page.images
-    if images is None:
+    if len(images) == 0:
         logging.info(f"No images to filter on page {page.page_number}")
-        return None
+        return []
+    res = []
     for image in images:
-        ...
+        percentage_coverage = (
+            (image.width * image.height) / (page.width * page.height)
+        ) * 100
+        aspect_ratio = image.width / image.height
+        if (aspect_ratio < max_aspect_ratio) and (
+            percentage_coverage > min_percentage_coverage
+        ):
+            res.append(image)
+    return res
