@@ -6,6 +6,8 @@ from pymupdf import Document, Page
 
 from studysherpa.core.config import filter_config
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class ExtractedImage:
@@ -28,10 +30,10 @@ class ExtractedPage:
     """
     Params:
         page_number: `int`
-        text: `int`
+        text: `str`
         images: `list[ExtractedImage]`
-        page_width: float
-        page_height: float
+        width: `float`
+        height: `float`
     """
 
     page_number: int
@@ -65,6 +67,9 @@ def _extract_images_from_page(
         bbox = page.get_image_bbox(img)
         if isinstance(bbox, tuple):
             bbox = bbox[0]
+        if bbox.width == 0 or bbox.height == 0:
+            logger.warning(f"page_num = {page_num}: Zero dimension image. Droping it.")
+            continue
         res.append(
             ExtractedImage(
                 page_number=page_num,
@@ -86,6 +91,9 @@ def extract_pdf_from_bytes(pdf_bytes: bytes) -> ExtractedDocument:
         images: list[ExtractedImage] = _extract_images_from_page(page, page_num, doc)
         text = page.get_text("text")
         width, height = page.mediabox_size.x, page.mediabox_size.y
+        if width == 0 or height == 0:
+            logger.warning(f"page_num = {page_num}: Zero dimension page. Droping it.")
+            continue
         pages.append(
             ExtractedPage(
                 page_number=page_num,
@@ -114,7 +122,7 @@ def filter_images_on_page(
     """
     images = page.images
     if len(images) == 0:
-        logging.info(f"No images to filter on page {page.page_number}")
+        logger.info(f"No images to filter on page {page.page_number}")
         return []
     res = []
     for image in images:
