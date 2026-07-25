@@ -68,7 +68,7 @@ def _extract_images_from_page(
         if isinstance(bbox, tuple):
             bbox = bbox[0]
         if bbox.width == 0 or bbox.height == 0:
-            logger.warning(f"page_num = {page_num}: Zero dimension image. Droping it.")
+            logger.warning(f"page_num = {page_num}: Zero dimension image. Dropping it.")
             continue
         res.append(
             ExtractedImage(
@@ -92,7 +92,7 @@ def extract_pdf_from_bytes(pdf_bytes: bytes) -> ExtractedDocument:
         text = page.get_text("text")
         width, height = page.mediabox_size.x, page.mediabox_size.y
         if width == 0 or height == 0:
-            logger.warning(f"page_num = {page_num}: Zero dimension page. Droping it.")
+            logger.warning(f"page_num = {page_num}: Zero dimension page. Dropping it.")
             continue
         pages.append(
             ExtractedPage(
