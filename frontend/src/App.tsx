@@ -1,10 +1,10 @@
 import { Route, Routes } from "react-router";
-import RegisterPage from "./pages/RegisterPage";
-import LoginPage from "./pages/LoginPage";
-import HomePage from "./pages/HomePage";
-import MainLayout from "./layouts/MainLayout";
+import { RegisterPage } from "./pages/RegisterPage";
+import { LoginPage } from "./pages/LoginPage";
+import { HomePage } from "./pages/HomePage";
+import { MainLayout } from "./layouts/MainLayout";
 
-function App() {
+export function App() {
   return (
     <>
       <Routes>
@@ -17,5 +17,3 @@ function App() {
     </>
   );
 }
-
-export default App;
