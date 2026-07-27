@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = "/api";
 export class ApiError extends Error {
   status: number;
   detail: string;
@@ -23,12 +23,11 @@ async function request<T>(options: RequestOptions): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: method,
     body: JSON.stringify(body),
-    credentials: "include",
     headers: headers,
   });
   if (!response.ok) {
     const data = await response.json();
-    const detail = data.detail;
+    const detail = data.detail ? data.detail : data.error;
     throw new ApiError(response.status, detail);
   } else if (response.status === 204) {
     return null as T;

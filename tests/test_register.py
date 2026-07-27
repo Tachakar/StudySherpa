@@ -5,7 +5,7 @@ from httpx import AsyncClient
 @pytest.mark.asyncio
 async def test_register_creates_user(client: AsyncClient):
     response = await client.post(
-        "/register",
+        "/api/register",
         json={"email": "test@example.com", "password": "strongpassword"},
     )
 
@@ -21,10 +21,10 @@ async def test_register_creates_user(client: AsyncClient):
 async def test_register_duplicate_email_fails(client: AsyncClient):
     payload = {"email": "duplicate@example.com", "password": "strongpassword"}
 
-    first = await client.post("/register", json=payload)
+    first = await client.post("/api/register", json=payload)
     assert first.status_code == 201
 
-    second = await client.post("/register", json=payload)
+    second = await client.post("/api/register", json=payload)
     assert second.status_code == 409
 
 
@@ -32,12 +32,12 @@ async def test_register_duplicate_email_fails(client: AsyncClient):
 async def test_register_rate_limiter(client: AsyncClient):
     for i in range(3):
         register = await client.post(
-            "/register",
+            "/api/register",
             json={"email": f"test{i}@example.com", "password": "strongpassword"},
         )
         assert register.status_code == 201
 
     register_limit = await client.post(
-        "/register", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/register", json={"email": "test@example.com", "password": "strongpassword"}
     )
     assert register_limit.status_code == 429

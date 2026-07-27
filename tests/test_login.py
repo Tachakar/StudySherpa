@@ -7,11 +7,12 @@ from studysherpa.core.security import verify_jwt_token
 @pytest.mark.asyncio
 async def test_login_success(client: AsyncClient):
     register = await client.post(
-        "/register", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/register",
+        json={"email": "test@example.com", "password": "strongpassword"},
     )
     assert register.status_code == 201
     response = await client.post(
-        "/login", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/login", json={"email": "test@example.com", "password": "strongpassword"}
     )
     data = response.json()
     assert verify_jwt_token(data["access_token"]) == register.json()["id"]
@@ -23,11 +24,12 @@ async def test_login_success(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_login_wrong_password(client: AsyncClient):
     register = await client.post(
-        "/register", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/register",
+        json={"email": "test@example.com", "password": "strongpassword"},
     )
     assert register.status_code == 201
     response = await client.post(
-        "/login", json={"email": "test@example.com", "password": "wrongpassword"}
+        "/api/login", json={"email": "test@example.com", "password": "wrongpassword"}
     )
     assert response.status_code == 401
 
@@ -35,7 +37,7 @@ async def test_login_wrong_password(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_login_nonexistent_user(client: AsyncClient):
     response = await client.post(
-        "/login", json={"email": "test@example.com", "password": "wrongpassword"}
+        "/api/login", json={"email": "test@example.com", "password": "wrongpassword"}
     )
     assert response.status_code == 401
 
@@ -43,15 +45,15 @@ async def test_login_nonexistent_user(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_login_wrong_email_and_password_same_msg(client: AsyncClient):
     register = await client.post(
-        "/register", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/register", json={"email": "test@example.com", "password": "strongpassword"}
     )
     assert register.status_code == 201
 
     wrong_password = await client.post(
-        "/login", json={"email": "test@example.com", "password": "wrongpassword"}
+        "/api/login", json={"email": "test@example.com", "password": "wrongpassword"}
     )
     nonexistent_user = await client.post(
-        "/login", json={"email": "nobody@example.com", "password": "wrongpassword"}
+        "/api/login", json={"email": "nobody@example.com", "password": "wrongpassword"}
     )
     assert wrong_password.json()["detail"] == nonexistent_user.json()["detail"]
 
@@ -59,17 +61,17 @@ async def test_login_wrong_email_and_password_same_msg(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_login_rate_limiter(client: AsyncClient):
     register = await client.post(
-        "/register", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/register", json={"email": "test@example.com", "password": "strongpassword"}
     )
     assert register.status_code == 201
     for _ in range(5):
         login = await client.post(
-            "/login",
+            "/api/login",
             json={"email": "test@example.com", "password": "strongpassword"},
         )
         assert login.status_code == 200
     login_limit_reached = await client.post(
-        "/login",
+        "/api/login",
         json={"email": "test@example.com", "password": "strongpassword"},
     )
     assert login_limit_reached.status_code == 429

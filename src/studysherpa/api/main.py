@@ -1,6 +1,14 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Request,
+    Response,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -28,6 +36,7 @@ from studysherpa.core.security import (
 from studysherpa.db import RefreshToken, User
 
 limiter = Limiter(key_func=get_remote_address)
+router = APIRouter(prefix="/api")
 app = FastAPI(title="StudySherpa")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -47,7 +56,9 @@ async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED
+)
 @limiter.limit(limit_value=settings.register_rate_limit)
 async def register(
     request: Request, user_data: UserCreate, db: AsyncSession = Depends(get_db)
@@ -74,7 +85,7 @@ async def register(
     return user
 
 
-@app.post("/login", response_model=Token)
+@router.post("/login", response_model=Token)
 @limiter.limit(limit_value=settings.login_rate_limit)
 async def login(
     request: Request,
@@ -115,7 +126,7 @@ async def login(
     return token
 
 
-@app.post("/refresh", response_model=Token)
+@router.post("/refresh", response_model=Token)
 @limiter.limit(limit_value=settings.refresh_rate_limit)
 async def refresh(
     request: Request, response: Response, db: AsyncSession = Depends(get_db)
@@ -174,7 +185,7 @@ async def refresh(
     )
 
 
-@app.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     request: Request, response: Response, db: AsyncSession = Depends(get_db)
 ) -> None:
@@ -192,8 +203,11 @@ async def logout(
     response.delete_cookie("refresh_token")
 
 
-@app.get("/user", response_model=UserPublic)
+@router.get("/user", response_model=UserPublic)
 async def read_current_user(
     current_user: User = Depends(get_current_user),
 ):
     return current_user
+
+
+app.include_router(router)
