@@ -28,8 +28,9 @@ def test_wrong_token_signature():
 
 
 def test_manipulated_token():
-    token = create_jwt_token(1)
-    token = token[:-1] + ("a" if token[-1] != "a" else "b")
+    header, payload, signature = create_jwt_token(1).split(".")
+    payload = ("a" if payload[0] != "a" else "b") + payload[1:]
+    token = ".".join([header, payload, signature])
     with pytest.raises(jwt.InvalidSignatureError):
         _ = verify_jwt_token(token)
 
