@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from logging import getLogger
 
 from fastapi import (
     APIRouter,
@@ -35,6 +36,7 @@ from studysherpa.core.security import (
 )
 from studysherpa.db import RefreshToken, User
 
+logger = getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/api")
 app = FastAPI(title="StudySherpa")
@@ -119,7 +121,7 @@ async def login(
         raw_refresh_token,
         httponly=True,
         max_age=settings.refresh_token_expires_days * 86400,
-        secure=True if settings.cookie_secure else False,
+        secure=settings.cookie_secure,
         samesite="strict",
     )
     token = Token(access_token=jwt_token, token_type="bearer")
@@ -176,7 +178,7 @@ async def refresh(
         new_raw_refresh_token,
         httponly=True,
         max_age=settings.refresh_token_expires_days * 86400,
-        secure=True if settings.cookie_secure else False,
+        secure=settings.cookie_secure,
         samesite="strict",
     )
     return Token(
@@ -189,18 +191,37 @@ async def refresh(
 async def logout(
     request: Request, response: Response, db: AsyncSession = Depends(get_db)
 ) -> None:
-    token_hash = hash_refresh_token(request.cookies.get("refresh_token", ""))
-    stored_token = await db.scalar(
-        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-    )
-    if stored_token is None or stored_token.revoked_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+    raw_token = request.cookies.get("refresh_token")
+    if raw_token:
+        token = hash_refresh_token(raw_token)
+        stored = await db.scalar(
+            select(RefreshToken)
+            .where(RefreshToken.token_hash == token)
+            .with_for_update()
         )
-
-    stored_token.revoked_at = datetime.now(tz=timezone.utc)
-    await db.commit()
-    response.delete_cookie("refresh_token")
+        if stored:
+            if stored.revoked_at is None:
+                stored.revoked_at = datetime.now(tz=timezone.utc)
+                await db.commit()
+            else:
+                logger.info(
+                    "Refresh token already was revoked. user_id = %s | token_id = %s",
+                    stored.user_id,
+                    stored.id,
+                )
+        else:
+            logger.warning(
+                "Unknown refresh token. host = %s",
+                request.client.host if request.client else "unknown",
+            )
+    else:
+        logger.info("Cookies do not contain refresh token")
+    response.delete_cookie(
+        "refresh_token",
+        httponly=True,
+        samesite="strict",
+        secure=settings.cookie_secure,
+    )
 
 
 @router.get("/user", response_model=UserPublic)
