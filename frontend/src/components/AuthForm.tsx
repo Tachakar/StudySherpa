@@ -8,7 +8,6 @@ type AuthFormProps = {
   password: string;
   setPassword: React.Dispatch<React.SetStateAction<string>>;
   handler: (event: React.FormEvent<HTMLFormElement>) => void;
-  msg: string;
   submitLabel: string;
   passwordAutoComplete: "current-password" | "new-password";
 };
@@ -20,7 +19,6 @@ export function AuthForm(props: AuthFormProps) {
     password,
     setPassword,
     handler,
-    msg,
     submitLabel,
     passwordAutoComplete,
   } = props;
@@ -66,9 +64,6 @@ export function AuthForm(props: AuthFormProps) {
             >
               {submitLabel}
             </button>
-          </div>
-          <div role="alert" className="text-red-400">
-            {msg}
           </div>
         </form>
       </div>

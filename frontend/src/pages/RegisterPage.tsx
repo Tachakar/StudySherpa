@@ -3,11 +3,12 @@ import { useState } from "react";
 import { ApiError } from "../api/client";
 import { AuthForm } from "../components/AuthForm";
 import { useNavigate } from "react-router";
+import { useNotification } from "../notifications/NotificationContext";
 
 export function RegisterPage() {
+  const notifications = useNotification();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [msg, setMsg] = useState("");
   const navigate = useNavigate();
   async function handler(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -18,13 +19,19 @@ export function RegisterPage() {
       if (err instanceof ApiError) {
         switch (err.status) {
           case 409:
-            setMsg(`User with email ${email} exists`);
+            notifications.sendNotification(
+              "This email is already taken.",
+              "warning",
+            );
             break;
           default:
-            setMsg(`Something went wrong. Please try again.`);
+            notifications.sendNotification(
+              "Something went wrong. Please try again.",
+              "error",
+            );
         }
       } else {
-        setMsg("Something went wrong.");
+        notifications.sendNotification("Something went wrong.", "error");
       }
     }
   }
@@ -36,7 +43,6 @@ export function RegisterPage() {
       password={password}
       setPassword={setPassword}
       handler={handler}
-      msg={msg}
       submitLabel="Register"
       passwordAutoComplete="new-password"
     />
