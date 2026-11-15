@@ -27,11 +27,13 @@ from studysherpa.api.schemas import (
 from studysherpa.core.config import settings
 from studysherpa.core.database import get_db
 from studysherpa.core.security import (
+    DUMMY_PASSWORD_HASH,
     create_jwt_token,
     create_refresh_token,
     get_current_user,
     hash_password,
     hash_refresh_token,
+    password_needs_rehash,
     verify_password,
 )
 from studysherpa.db import RefreshToken, User
@@ -96,16 +98,15 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ) -> Token:
     user = await db.scalar(select(User).where(User.email == credentials.email))
-    found_hash = user.hashed_password if user is not None else None
-    if found_hash is not None:
-        password_ok = verify_password(credentials.password, found_hash)
-    else:
-        password_ok = verify_password(credentials.password)
+    stored_hash = user.hashed_password if user is not None else DUMMY_PASSWORD_HASH
+    password_ok = verify_password(credentials.password, stored_hash)
     if user is None or not password_ok:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
+    if password_needs_rehash(user.hashed_password):
+        user.hashed_password = hash_password(credentials.password)
     jwt_token = create_jwt_token(user.id)
     raw_refresh_token = create_refresh_token()
     refresh_token_db = RefreshToken(

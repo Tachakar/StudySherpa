@@ -3,8 +3,9 @@ import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
-import bcrypt
 import jwt
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
@@ -16,21 +17,28 @@ from studysherpa.db import User
 
 http_bearer = HTTPBearer()
 logger = logging.getLogger(__name__)
+password_hasher = PasswordHasher()
 
 
 def hash_password(plain_password: str) -> str:
-    password_bytes = plain_password.encode("utf-8")
-    salt = bcrypt.gensalt(rounds=12)
-    hashed = bcrypt.hashpw(password_bytes, salt)
-    return hashed.decode("utf-8")
+    return password_hasher.hash(plain_password)
 
 
-def verify_password(
-    plain_password: str, hashed_password: str = hash_password(settings.dummy_password)
-) -> bool:
-    hash_bytes = hashed_password.encode("utf-8")
-    plain_bytes = plain_password.encode("utf-8")
-    return bcrypt.checkpw(plain_bytes, hash_bytes)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    try:
+        return password_hasher.verify(hashed_password, plain_password)
+    except VerificationError:
+        return False
+    except InvalidHashError:
+        logger.warning("Stored password hash is not a valid Argon2 hash")
+        return False
+
+
+def password_needs_rehash(hashed_password: str) -> bool:
+    return password_hasher.check_needs_rehash(hashed_password)
+
+
+DUMMY_PASSWORD_HASH = hash_password(settings.dummy_password)
 
 
 def create_jwt_token(
