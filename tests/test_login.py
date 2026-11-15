@@ -1,7 +1,57 @@
 import pytest
+from argon2 import PasswordHasher
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from studysherpa.core.security import verify_jwt_token
+from studysherpa.core.security import (
+    password_needs_rehash,
+    verify_jwt_token,
+    verify_password,
+)
+from studysherpa.db import User
+
+
+@pytest.mark.asyncio
+async def test_login_rehashes_outdated_hash(
+    client: AsyncClient, db_session: AsyncSession
+):
+    weak_hasher = PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
+    user = User(
+        email="test@example.com", hashed_password=weak_hasher.hash("strongpassword")
+    )
+    db_session.add(user)
+    await db_session.commit()
+    outdated_hash = user.hashed_password
+
+    response = await client.post(
+        "/api/login", json={"email": "test@example.com", "password": "strongpassword"}
+    )
+    assert response.status_code == 200
+
+    await db_session.refresh(user)
+    assert user.hashed_password != outdated_hash
+    assert password_needs_rehash(user.hashed_password) is False
+    assert verify_password("strongpassword", user.hashed_password) is True
+
+
+@pytest.mark.asyncio
+async def test_login_keeps_current_hash(client: AsyncClient, db_session: AsyncSession):
+    register = await client.post(
+        "/api/register",
+        json={"email": "test@example.com", "password": "strongpassword"},
+    )
+    assert register.status_code == 201
+    user = await db_session.get(User, register.json()["id"])
+    assert user is not None
+    hash_before_login = user.hashed_password
+
+    response = await client.post(
+        "/api/login", json={"email": "test@example.com", "password": "strongpassword"}
+    )
+    assert response.status_code == 200
+
+    await db_session.refresh(user)
+    assert user.hashed_password == hash_before_login
 
 
 @pytest.mark.asyncio
