@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
 
@@ -38,6 +39,8 @@ from studysherpa.core.security import (
 )
 from studysherpa.db import RefreshToken, User
 
+USED_EMAIL_DETAIL = "User with this email exists."
+
 logger = getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/api")
@@ -65,24 +68,27 @@ async def health_check() -> dict[str, str]:
 )
 @limiter.limit(limit_value=settings.register_rate_limit)
 async def register(
-    request: Request, user_data: UserCreate, db: AsyncSession = Depends(get_db)
+    request: Request,
+    user_data: UserCreate,
+    db: AsyncSession = Depends(get_db),
 ):
     existing = await db.scalar(select(User).where(User.email == user_data.email))
     if existing is not None:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User with this email already exists",
+            status_code=status.HTTP_409_CONFLICT, detail=USED_EMAIL_DETAIL
         )
-    user = User(
-        email=user_data.email, hashed_password=hash_password(user_data.password)
+    hashed_password = await asyncio.to_thread(
+        hash_password, plain_password=user_data.password
     )
+    user = User(email=user_data.email, hashed_password=hashed_password)
     db.add(user)
     try:
         await db.commit()
     except IntegrityError:
         await db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Race condition"
+            status_code=status.HTTP_409_CONFLICT,
+            detail=USED_EMAIL_DETAIL,
         )
     await db.refresh(user)
 
@@ -99,14 +105,20 @@ async def login(
 ) -> Token:
     user = await db.scalar(select(User).where(User.email == credentials.email))
     stored_hash = user.hashed_password if user is not None else DUMMY_PASSWORD_HASH
-    password_ok = verify_password(credentials.password, stored_hash)
+    password_ok = await asyncio.to_thread(
+        verify_password,
+        plain_password=credentials.password,
+        hashed_password=stored_hash,
+    )
     if user is None or not password_ok:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
     if password_needs_rehash(user.hashed_password):
-        user.hashed_password = hash_password(credentials.password)
+        user.hashed_password = await asyncio.to_thread(
+            hash_password, plain_password=credentials.password
+        )
     jwt_token = create_jwt_token(user.id)
     raw_refresh_token = create_refresh_token()
     refresh_token_db = RefreshToken(
