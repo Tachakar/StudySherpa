@@ -38,6 +38,16 @@ async def test_register_rate_limiter(client: AsyncClient):
         assert register.status_code == 201
 
     register_limit = await client.post(
-        "/api/register", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/register",
+        json={"email": "test@example.com", "password": "strongpassword"},
     )
     assert register_limit.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_short_password_rejections(client: AsyncClient):
+    register = await client.post(
+        "/api/register",
+        json={"email": "test@example.com", "password": "1234567"},
+    )
+    assert register.status_code == 422

@@ -1,15 +1,18 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
+import jwt
 import pytest
 from httpx import AsyncClient
 
+from studysherpa.core.config import settings
 from studysherpa.core.security import create_jwt_token
 
 
 @pytest.mark.asyncio
 async def test_user_endpoint_valid(client: AsyncClient):
     register = await client.post(
-        "/api/register", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/register",
+        json={"email": "test@example.com", "password": "strongpassword"},
     )
     assert register.status_code == 201
 
@@ -46,12 +49,15 @@ async def test_user_endpoint_malformed_token(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_user_endpoint_expired_token(client: AsyncClient):
     register = await client.post(
-        "/api/register", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/register",
+        json={"email": "test@example.com", "password": "strongpassword"},
     )
     user_id = register.json()["id"]
     token = create_jwt_token(user_id, expires_delta=timedelta(seconds=-1))
 
-    response = await client.get("/api/user", headers={"Authorization": f"Bearer {token}"})
+    response = await client.get(
+        "/api/user", headers={"Authorization": f"Bearer {token}"}
+    )
     assert response.status_code == 401
     assert response.json()["detail"] == "Could not validate credentials"
 
@@ -60,6 +66,21 @@ async def test_user_endpoint_expired_token(client: AsyncClient):
 async def test_user_endpoint_nonexistent_user(client: AsyncClient):
     token = create_jwt_token(999999)
 
-    response = await client.get("/api/user", headers={"Authorization": f"Bearer {token}"})
+    response = await client.get(
+        "/api/user", headers={"Authorization": f"Bearer {token}"}
+    )
     assert response.status_code == 401
     assert response.json()["detail"] == "Could not validate credentials"
+
+
+@pytest.mark.asyncio
+async def test_jwt_without_sub(client: AsyncClient):
+    token = jwt.encode(
+        {"exp": datetime.now(timezone.utc) + timedelta(minutes=30.0)},
+        key=settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+    get_user = await client.get(
+        "/api/user", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert get_user.status_code == 401

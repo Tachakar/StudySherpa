@@ -1,11 +1,10 @@
-from datetime import timedelta, datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import jwt
 import pytest
 
-
 from studysherpa.core.config import settings
-from studysherpa.core.security import verify_jwt_token, create_jwt_token
+from studysherpa.core.security import create_jwt_token, verify_jwt_token
 
 TEST_KEY = "sadjjl123kasd"
 
@@ -38,3 +37,28 @@ def test_manipulated_token():
 def test_random_token():
     with pytest.raises(jwt.DecodeError):
         _ = verify_jwt_token("not a token")
+
+
+def test_invalid_sub_raises_error():
+    with pytest.raises(jwt.InvalidTokenError):
+        verify_jwt_token(
+            jwt.encode(
+                {
+                    "sub": "abc",
+                    "exp": datetime.now(timezone.utc) + timedelta(minutes=30.0),
+                },
+                key=settings.jwt_secret_key,
+                algorithm=settings.jwt_algorithm,
+            )
+        )
+
+
+def test_token_without_exp_raises_error():
+    with pytest.raises(jwt.InvalidTokenError):
+        verify_jwt_token(
+            jwt.encode(
+                {"sub": "1"},
+                key=settings.jwt_secret_key,
+                algorithm=settings.jwt_algorithm,
+            )
+        )
