@@ -65,7 +65,7 @@ async def test_refresh_expired_token(client: AsyncClient, db_session: AsyncSessi
 
 
 @pytest.mark.asyncio
-async def test_refresh_revoked_token(client: AsyncClient):
+async def test_reused_token_revokes_all_useres_tokens(client: AsyncClient):
     register = await client.post(
         "/api/register",
         json={"email": "test@example.com", "password": "strongpassword"},
@@ -79,13 +79,15 @@ async def test_refresh_revoked_token(client: AsyncClient):
     token_a = client.cookies.get("refresh_token")
     assert token_a is not None
     first_refresh = await client.post("/api/refresh")
+    assert first_refresh.status_code == 200
     token_b = client.cookies.get("refresh_token")
     assert token_b is not None
     assert token_a != token_b
-    assert first_refresh.status_code == 200
+    client.cookies.clear()
     client.cookies.set("refresh_token", token_a)
     second_refresh = await client.post("/api/refresh")
     assert second_refresh.status_code == 401
+    client.cookies.clear()
     client.cookies.set("refresh_token", token_b)
     third_refresh = await client.post("/api/refresh")
     assert third_refresh.status_code == 401
