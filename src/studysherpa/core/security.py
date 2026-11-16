@@ -8,6 +8,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt.types import Options
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,9 +53,16 @@ def create_jwt_token(
 
 def verify_jwt_token(token: str) -> int:
     payload = jwt.decode(
-        token, key=settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
+        token,
+        key=settings.jwt_secret_key,
+        algorithms=[settings.jwt_algorithm],
+        options=Options(require=["sub", "exp"]),
     )
-    return int(payload["sub"])
+    try:
+        sub = int(payload["sub"])
+    except ValueError as e:
+        raise jwt.InvalidTokenError from e
+    return sub
 
 
 def create_refresh_token() -> str:
