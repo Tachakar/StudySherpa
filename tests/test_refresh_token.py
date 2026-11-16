@@ -1,10 +1,12 @@
 from datetime import datetime, timedelta, timezone
+from http.cookies import SimpleCookie
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from studysherpa.core.config import settings
 from studysherpa.core.security import hash_refresh_token, verify_jwt_token
 from studysherpa.db import RefreshToken
 
@@ -12,7 +14,8 @@ from studysherpa.db import RefreshToken
 @pytest.mark.asyncio
 async def test_refresh_success(client: AsyncClient):
     register = await client.post(
-        "/api/register", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/register",
+        json={"email": "test@example.com", "password": "strongpassword"},
     )
     assert register.status_code == 201
 
@@ -37,7 +40,8 @@ async def test_refresh_success(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_refresh_expired_token(client: AsyncClient, db_session: AsyncSession):
     register = await client.post(
-        "/api/register", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/register",
+        json={"email": "test@example.com", "password": "strongpassword"},
     )
     assert register.status_code == 201
 
@@ -63,7 +67,8 @@ async def test_refresh_expired_token(client: AsyncClient, db_session: AsyncSessi
 @pytest.mark.asyncio
 async def test_refresh_revoked_token(client: AsyncClient):
     register = await client.post(
-        "/api/register", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/register",
+        json={"email": "test@example.com", "password": "strongpassword"},
     )
     assert register.status_code == 201
 
@@ -71,13 +76,19 @@ async def test_refresh_revoked_token(client: AsyncClient):
         "/api/login", json={"email": "test@example.com", "password": "strongpassword"}
     )
     assert login.status_code == 200
-    old_refresh_token = client.cookies.get("refresh_token")
-    assert old_refresh_token is not None
+    token_a = client.cookies.get("refresh_token")
+    assert token_a is not None
     first_refresh = await client.post("/api/refresh")
+    token_b = client.cookies.get("refresh_token")
+    assert token_b is not None
+    assert token_a != token_b
     assert first_refresh.status_code == 200
-    client.cookies.set("refresh_token", old_refresh_token)
-    reused_refresh = await client.post("/api/refresh")
-    assert reused_refresh.status_code == 401
+    client.cookies.set("refresh_token", token_a)
+    second_refresh = await client.post("/api/refresh")
+    assert second_refresh.status_code == 401
+    client.cookies.set("refresh_token", token_b)
+    third_refresh = await client.post("/api/refresh")
+    assert third_refresh.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -89,7 +100,8 @@ async def test_refresh_nonexistent_token(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_refresh_rate_limiter(client: AsyncClient):
     register = await client.post(
-        "/api/register", json={"email": "test@example.com", "password": "strongpassword"}
+        "/api/register",
+        json={"email": "test@example.com", "password": "strongpassword"},
     )
     assert register.status_code == 201
     login = await client.post(
