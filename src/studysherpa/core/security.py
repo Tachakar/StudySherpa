@@ -1,7 +1,8 @@
 import hashlib
 import logging
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
 import jwt
 from argon2 import PasswordHasher
@@ -46,7 +47,7 @@ def create_jwt_token(
     user_id: int,
     expires_delta: timedelta = timedelta(minutes=settings.jwt_expires_minutes),
 ) -> str:
-    exp = datetime.now(timezone.utc) + expires_delta
+    exp = datetime.now(UTC) + expires_delta
     payload = {"sub": str(user_id), "exp": exp}
     return jwt.encode(payload, settings.jwt_secret_key, settings.jwt_algorithm)
 
@@ -83,8 +84,8 @@ def _unauthorized(logging_msg: str) -> HTTPException:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),
-    db: AsyncSession = Depends(get_db),
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(http_bearer)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> User:
     try:
         user_id = verify_jwt_token(credentials.credentials)

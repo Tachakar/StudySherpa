@@ -1,6 +1,8 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from logging import getLogger
+from pathlib import Path
+from typing import Annotated
 
 from fastapi import (
     APIRouter,
@@ -58,6 +60,12 @@ app.add_middleware(
 )
 
 
+def serve_frontend_through_backend(application: FastAPI, frontend: Path | None) -> None:
+    if frontend is None:
+        return
+    application.frontend("/", directory=frontend, fallback="index.html")
+
+
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
@@ -70,7 +78,7 @@ async def health_check() -> dict[str, str]:
 async def register(
     request: Request,
     user_data: UserCreate,
-    db: AsyncSession = Depends(get_db),
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     existing = await db.scalar(select(User).where(User.email == user_data.email))
     if existing is not None:
@@ -101,7 +109,7 @@ async def login(
     request: Request,
     response: Response,
     credentials: UserLogin,
-    db: AsyncSession = Depends(get_db),
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Token:
     user = await db.scalar(select(User).where(User.email == credentials.email))
     stored_hash = user.hashed_password if user is not None else DUMMY_PASSWORD_HASH
@@ -124,7 +132,7 @@ async def login(
     refresh_token_db = RefreshToken(
         user_id=user.id,
         token_hash=hash_refresh_token(raw_refresh_token),
-        expires_at=datetime.now(tz=timezone.utc)
+        expires_at=datetime.now(tz=UTC)
         + timedelta(days=settings.refresh_token_expires_days),
     )
     db.add(refresh_token_db)
@@ -144,7 +152,9 @@ async def login(
 @router.post("/refresh", response_model=Token)
 @limiter.limit(limit_value=settings.refresh_rate_limit)
 async def refresh(
-    request: Request, response: Response, db: AsyncSession = Depends(get_db)
+    request: Request,
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Token:
     raw_refresh_token = request.cookies.get("refresh_token")
     if raw_refresh_token is None:
@@ -158,7 +168,7 @@ async def refresh(
         .where(RefreshToken.token_hash == token_hash)
         .with_for_update()
     )
-    if stored_token is None or stored_token.expires_at < datetime.now(tz=timezone.utc):
+    if stored_token is None or stored_token.expires_at < datetime.now(tz=UTC):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
         )
@@ -169,18 +179,18 @@ async def refresh(
                 RefreshToken.user_id == stored_token.user_id,
                 RefreshToken.revoked_at.is_(None),
             )
-            .values(revoked_at=datetime.now(tz=timezone.utc))
+            .values(revoked_at=datetime.now(tz=UTC))
         )
         await db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
         )
-    stored_token.revoked_at = datetime.now(tz=timezone.utc)
+    stored_token.revoked_at = datetime.now(tz=UTC)
     new_raw_refresh_token = create_refresh_token()
     hashed_refreshed_token = RefreshToken(
         user_id=stored_token.user_id,
         token_hash=hash_refresh_token(new_raw_refresh_token),
-        expires_at=datetime.now(tz=timezone.utc)
+        expires_at=datetime.now(tz=UTC)
         + timedelta(days=settings.refresh_token_expires_days),
     )
     db.add(hashed_refreshed_token)
@@ -202,7 +212,9 @@ async def refresh(
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
-    request: Request, response: Response, db: AsyncSession = Depends(get_db)
+    request: Request,
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> None:
     raw_token = request.cookies.get("refresh_token")
     if raw_token:
@@ -214,7 +226,7 @@ async def logout(
         )
         if stored:
             if stored.revoked_at is None:
-                stored.revoked_at = datetime.now(tz=timezone.utc)
+                stored.revoked_at = datetime.now(tz=UTC)
                 await db.commit()
             else:
                 logger.info(
@@ -239,9 +251,19 @@ async def logout(
 
 @router.get("/user", response_model=UserPublic)
 async def read_current_user(
-    current_user: User = Depends(get_current_user),
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     return current_user
 
 
+@router.api_route(
+    "/{unmatched_path:path}",
+    methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
+    include_in_schema=False,
+)
+async def api_not_found(unmatched_path: str) -> None:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+
+
+serve_frontend_through_backend(app, settings.frontend_dir)
 app.include_router(router)

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http.cookies import SimpleCookie
 
 import pytest
@@ -58,7 +58,7 @@ async def test_refresh_expired_token(client: AsyncClient, db_session: AsyncSessi
         )
     )
     assert stored_token is not None
-    stored_token.expires_at = datetime.now(tz=timezone.utc) - timedelta(days=1)
+    stored_token.expires_at = datetime.now(tz=UTC) - timedelta(days=1)
     await db_session.commit()
     response = await client.post("/api/refresh")
     assert response.status_code == 401

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 import pytest
@@ -76,7 +76,7 @@ async def test_user_endpoint_nonexistent_user(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_jwt_without_sub(client: AsyncClient):
     token = jwt.encode(
-        {"exp": datetime.now(timezone.utc) + timedelta(minutes=30.0)},
+        {"exp": datetime.now(UTC) + timedelta(minutes=30.0)},
         key=settings.jwt_secret_key,
         algorithm=settings.jwt_algorithm,
     )
