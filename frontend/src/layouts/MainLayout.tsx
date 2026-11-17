@@ -1,8 +1,8 @@
 import { Link, Outlet } from "react-router";
 export function MainLayout() {
   return (
-    <div className="flex flex-col gap-30">
-      <nav className="flex items-center gap-8 bg-panel border border-white/10 rounded-full px-6 py-3 mx-auto mt-4">
+    <div className="flex flex-col gap-40">
+      <nav className="flex items-center gap-8 bg-panel border border-white/10 border-t-0 rounded-b-2xl px-6 py-3 mx-auto mt-0">
         <Link
           to={"/"}
           className="text-muted hover:text-ink transition-colors font-medium"

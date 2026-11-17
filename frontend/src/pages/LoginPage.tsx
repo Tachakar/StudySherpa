@@ -21,6 +21,14 @@ export function LoginPage() {
           case 401:
             notifications.sendNotification(err.detail, "error");
             break;
+
+          case 429:
+            notifications.sendNotification(
+              "Too many requests. Try again later.",
+              "error",
+            );
+            break;
+
           default:
             notifications.sendNotification(
               "Something went wrong. Try again.",

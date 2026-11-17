@@ -24,6 +24,12 @@ export function RegisterPage() {
               "warning",
             );
             break;
+          case 429:
+            notifications.sendNotification(
+              "Too many request. Try again later.",
+              "warning",
+            );
+            break;
           default:
             notifications.sendNotification(
               "Something went wrong. Please try again.",

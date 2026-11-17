@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode, useCallback, useMemo } from "react";
 import type { ToastNotification } from "./NotificationContext";
 import { NotificationContext } from "./NotificationContext";
 
-const typeStyles = {
+const notificationColors = {
   success: "bg-green-500/10",
   warning: "bg-yellow-500/10",
   error: "bg-red-500/10",
@@ -19,7 +19,7 @@ function Toast({
     <div
       onClick={() => dismiss(notification.id)}
       key={notification.id}
-      className={`rounded-xl p-2 ${typeStyles[notification.type]}`}
+      className={`rounded-sm p-2 ${notificationColors[notification.type]}`}
     >
       {notification.msg}
     </div>
