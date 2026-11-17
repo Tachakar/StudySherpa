@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 import pytest
@@ -20,7 +20,7 @@ def test_expired_token():
 
 
 def test_wrong_token_signature():
-    payload = {"sub": "1", "exp": datetime.now(timezone.utc) + timedelta(minutes=30.0)}
+    payload = {"sub": "1", "exp": datetime.now(UTC) + timedelta(minutes=30.0)}
     token = jwt.encode(payload, key=TEST_KEY, algorithm=settings.jwt_algorithm)
     with pytest.raises(jwt.InvalidSignatureError):
         _ = verify_jwt_token(token)
@@ -45,7 +45,7 @@ def test_invalid_sub_raises_error():
             jwt.encode(
                 {
                     "sub": "abc",
-                    "exp": datetime.now(timezone.utc) + timedelta(minutes=30.0),
+                    "exp": datetime.now(UTC) + timedelta(minutes=30.0),
                 },
                 key=settings.jwt_secret_key,
                 algorithm=settings.jwt_algorithm,
