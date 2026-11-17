@@ -59,3 +59,21 @@ jobs:
         run: npm ci
       - name: Check
         run: npm run lint && npm run build
+
+  docker:
+    name: docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Copy .env variables
+        run: cp .env.example .env
+      - name: Build image and start app with dependencies
+        run: docker compose up --build --detach --wait app
+      - name: Smoke test
+        run: |
+          curl --fail --silent http://localhost:8000/health
+          curl --fail --silent --header "Accept: text/html" http://localhost:8000/login | grep --quiet '<div id="root">'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8000/api/nope)" = "404"
+      - name: Show container logs
+        if: failure()
+        run: docker compose logs
