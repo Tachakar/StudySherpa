@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -25,6 +26,8 @@ class Settings(BaseSettings):
     cors_allowed_origins: list[str]
     cookie_secure: bool
     dummy_password: str
+
+    frontend_dir: Path | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", frozen=True)
 

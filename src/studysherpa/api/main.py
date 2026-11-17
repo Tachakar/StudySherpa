@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
+from pathlib import Path
 
 from fastapi import (
     APIRouter,
@@ -12,6 +13,7 @@ from fastapi import (
     status,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic.v1.errors import PathNotExistsError
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -47,6 +49,8 @@ router = APIRouter(prefix="/api")
 app = FastAPI(title="StudySherpa")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+if settings.frontend_dir:
+    app.frontend("/", directory=settings.frontend_dir, fallback="index.html")
 
 origins = settings.cors_allowed_origins
 app.add_middleware(
@@ -56,6 +60,12 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+
+def serve_frontend_through_backend(application: FastAPI, frontend: Path | None) -> None:
+    if frontend is None:
+        return
+    application.frontend("/", directory=frontend, fallback="index.html")
 
 
 @app.get("/health")
@@ -244,4 +254,14 @@ async def read_current_user(
     return current_user
 
 
+@router.api_route(
+    "/{unmatched_path:path}",
+    methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
+    include_in_schema=False,
+)
+async def api_not_found(unmatched_path: str) -> None:
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+
+
+serve_frontend_through_backend(app, settings.frontend_dir)
 app.include_router(router)
