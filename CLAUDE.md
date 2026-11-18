@@ -102,3 +102,17 @@ Start from `cp .env.example .env`. `core/config.py` `Settings` (pydantic-setting
 
 - No inline comments in code.
 - Commit messages use prefixes like `fix:`, `refactor:`, `add:`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `Tachakar/StudySherpa`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`); `ready-for-agent` is never applied in this repo. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root, created lazily. See `docs/agents/domain.md`.
