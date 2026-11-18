@@ -2,7 +2,6 @@ from http.cookies import SimpleCookie
 
 import pytest
 from httpx import AsyncClient, Response
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

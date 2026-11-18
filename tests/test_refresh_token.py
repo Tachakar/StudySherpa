@@ -6,7 +6,6 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from studysherpa.core.config import settings
 from studysherpa.core.security import hash_refresh_token, verify_jwt_token
 from studysherpa.db import RefreshToken
 
@@ -91,6 +90,33 @@ async def test_reused_token_revokes_all_useres_tokens(client: AsyncClient):
     client.cookies.set("refresh_token", token_b)
     third_refresh = await client.post("/api/refresh")
     assert third_refresh.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_reused_token_clears_refresh_cookie(client: AsyncClient):
+    register = await client.post(
+        "/api/register",
+        json={"email": "test@example.com", "password": "strongpassword"},
+    )
+    assert register.status_code == 201
+
+    login = await client.post(
+        "/api/login", json={"email": "test@example.com", "password": "strongpassword"}
+    )
+    assert login.status_code == 200
+    token_a = client.cookies.get("refresh_token")
+    assert token_a is not None
+    await client.post("/api/refresh")
+    client.cookies.set("refresh_token", token_a)
+    response = await client.post("/api/refresh")
+    assert response.status_code == 401
+    set_cookie_header = response.headers.get("Set-Cookie")
+    assert set_cookie_header is not None
+    parsed = SimpleCookie()
+    parsed.load(set_cookie_header)
+    morsel = parsed.get("refresh_token")
+    assert morsel is not None
+    assert morsel["max-age"] == "0"
 
 
 @pytest.mark.asyncio

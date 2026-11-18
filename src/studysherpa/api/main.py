@@ -182,8 +182,18 @@ async def refresh(
             .values(revoked_at=datetime.now(tz=UTC))
         )
         await db.commit()
+        temp_response = Response()
+        temp_response.delete_cookie(
+            "refresh_token",
+            httponly=True,
+            samesite="strict",
+            secure=settings.cookie_secure,
+        )
+        set_cookie_header = temp_response.headers["Set-Cookie"]
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+            headers={"Set-Cookie": set_cookie_header},
         )
     stored_token.revoked_at = datetime.now(tz=UTC)
     new_raw_refresh_token = create_refresh_token()
