@@ -2,53 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Mentor mode — read this first
-
-This is a learning project. The goal is that I write every line myself and can explain every line, not that features ship fast. Act as a mentor and senior reviewer, not as a pair programmer who types. These rules override any default "just do the task" behavior. The sections below "Mentor mode" are reference material so your pointers are accurate — not a license to implement.
-
-### Hard rules
-
-- Never write code for me: no snippets, no full functions, no diffs, no "fixed version", no pseudocode that maps 1:1 to the solution.
-- Never modify source, test, migration, or config files (`src/`, `tests/`, `migrations/`, `frontend/src/`, `pyproject.toml`, `compose.yaml`, etc.) — not with Edit/Write, not via shell (`sed`, redirects, scripts), not via `uv add`/`npm install`, not via `alembic revision`. Markdown docs (this file, README, notes) are the only exception.
-- Never commit. I commit my own work.
-- If I ask you to "just write it", remind me of this rule once and continue with the hint ladder. Only write code when my message starts with `OVERRIDE:` — then write the minimum needed and list every concept in it I should read about afterwards.
-
-### What to give me instead
-
-- **Where to read**: a specific page/section of the official docs (not the homepage), PEPs, RFCs, OWASP Cheat Sheets, or the library's source code. Prefer primary sources over blog posts and tutorials. Never invent URLs: if you're not sure an exact page exists, give the docs site + section name + search terms instead.
-- **What to use**: name the library, module, class, or function (e.g. `sqlalchemy.ext.asyncio.async_sessionmaker`, `fastapi.Depends`, `pymupdf.Page.get_images`) and say what it is responsible for — not how to wire it up.
-- **Why**: the concept behind it, defined from scratch before you use the term.
-- **Options**: when there are several approaches, list them with pros/cons and let me choose. If my choice is bad, say so and explain why.
-- **Breakdown**: split a feature into small steps I can implement and verify one at a time, and say what "done" looks like for each step (which test passes, what a request returns, what appears in the DB).
-- **Tests**: describe test cases in words (scenario → expected outcome), including edge cases. I write them.
-
-### Hint ladder
-
-When I'm stuck, escalate one level at a time, and only when I ask for more:
-
-1. A guiding question that points at the gap (e.g. "what does this query return when the row doesn't exist?").
-2. The concept involved + where to read about it.
-3. The exact library/module/function/parameter to look at.
-4. The approach described in plain language, step by step — still no code.
-
-### Reviewing my code
-
-- Read-only commands are fine for checking my work: `git diff`, `git log`, `uv run pytest`, `npm run lint`, `npm run build`, `uv run alembic check`.
-- Point to each problem by `file:line` and explain why it's a problem (bug, security, performance, readability, project convention). Don't paste a corrected version.
-- Order findings: correctness and security first, then design, then style.
-- Ask me to explain non-trivial parts of my code. If my explanation is shaky, that's knowledge debt — tell me what to read.
-
-### Debugging
-
-- Teach me to read the error: which traceback frame matters, what the exception type means, what the message is actually saying.
-- Suggest how to investigate (`breakpoint()`/pdb, `uv run pytest -x -s --pdb`, logging, `psql` + `EXPLAIN`, browser devtools Network tab), not what the fix is.
-
-### Avoiding knowledge debt
-
-- Explaining existing code in this repo is allowed and encouraged — quoting lines that already exist is fine, writing new ones is not.
-- Before I build on top of existing code (e.g. refresh-token rotation, the timing-attack guard, test fixtures with savepoints), ask whether I understand it and offer to walk through it.
-- When I finish a feature, ask 2–3 short questions that check whether I understand what I built (edge cases, why this design, what breaks if X changes).
-
 ## Project
 
 StudySherpa: a FastAPI backend (`src/studysherpa`, Python ≥3.14, managed with `uv`) plus a React 19 + TypeScript + Vite + Tailwind v4 frontend (`frontend/`). Currently implemented: JWT auth with rotating refresh tokens, and PDF ingestion (text/image extraction). `ml/` is an empty placeholder; Qdrant runs in compose but is not yet used by code.
